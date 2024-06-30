@@ -1,0 +1,72 @@
+#---
+## mysql-service.yaml
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  labels:
+#    app: mysql-service
+#  name: mysql-service
+#spec:
+#  externalName: demordsmyqldbinstance.cimllxgykuy3.ap-south-1.rds.amazonaws.com
+#  selector:
+#    app: mysql-service
+#  type: ExternalName
+#status:
+#  loadBalancer: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tbc-marketing-application
+  namespace: development
+data:
+  database-url: tbc-marketing-development
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tbc-marketing-application
+  namespace: development
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tbc-marketing-application
+  template:
+    metadata:
+      labels:
+        app: tbc-marketing-application
+    spec:
+      serviceAccountName: tbc-marketing-application
+      containers:
+        - name: nginx
+          image: nginx:1.14.2
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: db-credentials
+              mountPath: "/mnt/api-token"
+              readOnly: true
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: tbc-marketing-application
+                  key: database-url
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-marketing
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-marketing
+                  key: DB_PASSWORD
+      volumes:
+        - name: db-credentials
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: tbc-marketing-application
